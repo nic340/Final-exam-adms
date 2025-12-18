@@ -4,15 +4,20 @@ import os
 
 STAGING_DB = "staging.db"
 
-def load_csv_to_staging(csv_path, table_name):
-    """Load a CSV file into SQLite staging database"""
+def load_folder_to_staging(folder_path, table_prefix):
+    """Load all CSV files in a folder to SQLite staging DB"""
     conn = sqlite3.connect(STAGING_DB)
-    df = pd.read_csv(csv_path)
-    df.to_sql(table_name, conn, if_exists='replace', index=False)
+    
+    for file in os.listdir(folder_path):
+        if file.endswith(".csv"):
+            csv_path = os.path.join(folder_path, file)
+            df = pd.read_csv(csv_path)
+            table_name = f"{table_prefix}_{os.path.splitext(file)[0]}"
+            df.to_sql(table_name, conn, if_exists='replace', index=False)
+            print(f"Loaded {csv_path} → {table_name}")
+    
     conn.close()
-    print(f"{table_name} loaded into staging successfully.")
 
 if __name__ == "__main__":
-    os.makedirs("data", exist_ok=True)
-    load_csv_to_staging("data/japan_store.csv", "japan_store_staging")
-    load_csv_to_staging("data/myanmar_store.csv", "myanmar_store_staging")
+    load_folder_to_staging("data/japan_store", "japan")
+    load_folder_to_staging("data/myanmar_store", "myanmar")
