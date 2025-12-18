@@ -1,46 +1,49 @@
 import sqlite3
 import pandas as pd
 
+STAGING_DB = "staging.db"
 TRANSFORM_DB = "transformed.db"
-EXCHANGE_RATE_USD_TO_JPY = 150  # Example conversion rate
+EXCHANGE_RATE_USD_TO_JPY = 150  # adjust as needed
 
-def clean_and_transform(table_name, conn):
-    """Read from staging, clean, and standardize data"""
-    df = pd.read_sql(f"SELECT * FROM {table_name}", conn)
-    
-    # 1. Strip whitespace from column names
+def clean_and_transform(df, store_prefix):
+    # Strip column names
     df.columns = df.columns.str.strip()
     
-    # 2. Strip whitespace inside string columns
+    # Strip whitespace in text columns
     for col in df.select_dtypes(include="object").columns:
         df[col] = df[col].str.strip()
     
-    # 3. Replace empty strings with NaN
+    # Replace empty strings with NaN
     df.replace("", pd.NA, inplace=True)
     
-    # 4. Drop duplicate rows
+    # Drop duplicates
     df.drop_duplicates(inplace=True)
     
-    # 5. Standardize prices
+    # Standardize price
     if "price" in df.columns:
-        if "japan" in table_name:
+        if store_prefix == "japan":
             df["price_usd"] = df["price"] / EXCHANGE_RATE_USD_TO_JPY
         else:
-            df["price_usd"] = df["price"]  # already in USD
+            df["price_usd"] = df["price"]
     
     return df
 
-def save_transformed(df, table_name):
-    conn = sqlite3.connect(TRANSFORM_DB)
-    df.to_sql(table_name, conn, if_exists="replace", index=False)
-    conn.close()
-    print(f"{table_name} saved to transformation area.")
+def transform_all_tables():
+    staging_conn = sqlite3.connect(STAGING_DB)
+    transform_conn = sqlite3.connect(TRANSFORM_DB)
+    
+    # Get all table names
+    tables = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table'", staging_conn)
+    
+    for table in tables['name']:
+        df = pd.read_sql(f"SELECT * FROM {table}", staging_conn)
+        store_prefix = table.split("_")[0]  # assumes table names start with store prefix
+        df_clean = clean_and_transform(df, store_prefix)
+        df_clean.to_sql(f"{table}_transformed", transform_conn, if_exists='replace', index=False)
+        print(f"Transformed {table} → {table}_transformed")
+    
+    staging_conn.close()
+    transform_conn.close()
 
 if __name__ == "__main__":
-    staging_conn = sqlite3.connect("staging.db")
-    japan_df = clean_and_transform("japan_store_staging", staging_conn)
-    myanmar_df = clean_and_transform("myanmar_store_staging", staging_conn)
-    staging_conn.close()
-    
-    save_transformed(japan_df, "japan_store_transformed")
-    save_transformed(myanmar_df, "myanmar_store_transformed")
+    transform_all_tables()
