@@ -11,8 +11,8 @@ def generate_insights():
     
     if "price_usd" in df.columns:
         print(f"2. Average price USD: {df['price_usd'].mean():.2f}")
-        print(f"3. Most expensive item: {df.loc[df['price_usd'].idxmax()]['item_name']}")
-    
+        print(f"3. Most expensive item: {df.loc[df['price_usd'].idxmax()]['product_name']}")
+
     if "store_name" in df.columns:
         print(f"4. Items per store:\n{df['store_name'].value_counts()}")
     
