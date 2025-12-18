@@ -5,6 +5,7 @@ import os
 STAGING_DB = "staging.db"
 
 def load_folder_to_staging(folder_path, table_prefix):
+    """Load all CSV files in a folder to SQLite staging DB"""
     conn = sqlite3.connect(STAGING_DB)
     
     for file in os.listdir(folder_path):
@@ -18,5 +19,6 @@ def load_folder_to_staging(folder_path, table_prefix):
     conn.close()
 
 if __name__ == "__main__":
+    # Load Japan and Myanmar CSV folders
     load_folder_to_staging("data/japan_store", "japan")
     load_folder_to_staging("data/myanmar_store", "myanmar")
