@@ -1,5 +1,6 @@
 import sqlite3
 import pandas as pd
+import matplotlib.pyplot as plt
 
 PRESENTATION_DB = "presentation.db"
 
@@ -8,19 +9,11 @@ def generate_insights():
     df = pd.read_sql("SELECT * FROM big_table", conn)
     conn.close()
 
-    # 1. Total items
+    # Insights
     total_items = len(df)
-    
-    # 2. Average price USD
     avg_price = df['price_usd'].mean()
-    
-    # 3. Most expensive item
     most_expensive_item = df.loc[df['price_usd'].idxmax()]['product_name']
-    
-    # 4. Items per store (using 'city' column)
     items_per_store = df['city'].value_counts()
-    
-    # 5. Average price per category
     avg_price_category = df.groupby('category')['price_usd'].mean()
 
     # Print insights
@@ -33,21 +26,31 @@ def generate_insights():
     print("5. Average price per category:")
     print(avg_price_category)
 
-    # Save insights to CSV
+    # Save summary CSV
     insights_df = pd.DataFrame({
-        "Insight": [
-            "Total items",
-            "Average price USD",
-            "Most expensive item"
-        ],
-        "Value": [
-            total_items,
-            round(avg_price,2),
-            most_expensive_item
-        ]
+        "Insight": ["Total items", "Average price USD", "Most expensive item"],
+        "Value": [total_items, round(avg_price,2), most_expensive_item]
     })
     insights_df.to_csv("insights_summary.csv", index=False)
     print("\nInsights saved to 'insights_summary.csv'")
+
+    # Visualizations
+    plt.figure(figsize=(10,6))
+    avg_price_category.sort_values().plot(kind='bar', color='skyblue')
+    plt.title("Average Price per Category (USD)")
+    plt.ylabel("Price USD")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig("avg_price_category.png")
+    plt.show()
+
+    plt.figure(figsize=(6,6))
+    items_per_store.plot(kind='pie', autopct='%1.1f%%', startangle=90)
+    plt.title("Items per Store")
+    plt.ylabel("")
+    plt.tight_layout()
+    plt.savefig("items_per_store.png")
+    plt.show()
 
 if __name__ == "__main__":
     generate_insights()
