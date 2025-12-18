@@ -2,3 +2,20 @@ Insight,Value
 Total items,2172
 Average price USD,41.11
 Most expensive item,High-Fidelity Headphones
+Items per store:
+city
+Nagasaki     1
+Hiroshima    1
+Tokyo        1
+Yangon       1
+Naypyitaw    1
+Mandalay     1
+Name: count, dtype: int64
+5. Average price per category:
+category
+Electronic accessories    76.504059
+Fashion accessories       33.619696
+Food and beverages        15.624662
+Health and beauty         21.905501
+Home and lifestyle        31.351424
+Sports and travel         70.144638
