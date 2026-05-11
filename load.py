@@ -1,30 +1,39 @@
-import sqlite3
 import pandas as pd
+import os
+from sqlalchemy import create_engine, inspect
+from dotenv import load_dotenv
 
-TRANSFORM_DB = "transformed.db"
-PRESENTATION_DB = "presentation.db"
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 def create_big_table():
-    transform_conn = sqlite3.connect(TRANSFORM_DB)
-    presentation_conn = sqlite3.connect(PRESENTATION_DB)
+    if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
+        engine_url = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
+    else:
+        engine_url = DATABASE_URL
+
+    engine = create_engine(engine_url)
     
-    tables = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table'", transform_conn)
+    inspector = inspect(engine)
+    all_tables = inspector.get_table_names()
+    
     all_dfs = []
     
-    for table in tables['name']:
-        df = pd.read_sql(f"SELECT * FROM {table}", transform_conn)
-        all_dfs.append(df)
-        print(f"Loaded {table} for BIG TABLE")
+    print("--- 🏗️ Building BIG TABLE from PostgreSQL tables ---")
+    
+    for table_name in all_tables:
+        if table_name != "big_table":
+            df = pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
+            all_dfs.append(df)
+            print(f"✅ Loaded {table_name} for BIG TABLE")
     
     if all_dfs:
         big_df = pd.concat(all_dfs, ignore_index=True)
-        big_df.to_sql("big_table", presentation_conn, if_exists='replace', index=False)
-        print("BIG TABLE created in presentation.db")
+        
+        big_df.to_sql("big_table", engine, if_exists='replace', index=False)
+        print("\n✨ SUCCESS: BIG TABLE created successfully in Render PostgreSQL!")
     else:
-        print("No transformed tables found to combine.")
-    
-    transform_conn.close()
-    presentation_conn.close()
+        print("❌ Error: No tables found in PostgreSQL to combine.")
 
 if __name__ == "__main__":
     create_big_table()
