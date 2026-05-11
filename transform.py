@@ -1,49 +1,43 @@
-import sqlite3
 import pandas as pd
+import os
+from sqlalchemy import create_engine, inspect
+from dotenv import load_dotenv
 
-STAGING_DB = "staging.db"
-TRANSFORM_DB = "transformed.db"
-EXCHANGE_RATE_JPY_TO_USD = 150  # Example: 1 USD = 150 JPY
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
+EXCHANGE_RATE_JPY_TO_USD = 150
 
 def clean_and_transform(df, store_prefix):
-    # Clean column names
     df.columns = df.columns.str.strip()
-    
-    # Clean text columns
     for col in df.select_dtypes(include="object").columns:
         df[col] = df[col].str.strip()
-    
-    # Replace empty strings with NaN
     df.replace("", pd.NA, inplace=True)
-    
-    # Drop duplicates
     df.drop_duplicates(inplace=True)
-    
-    # Standardize price
     if "price" in df.columns:
         if store_prefix == "japan":
             df["price_usd"] = df["price"] / EXCHANGE_RATE_JPY_TO_USD
         else:
             df["price_usd"] = df["price"]
-    
     return df
 
 def transform_all_tables():
-    staging_conn = sqlite3.connect(STAGING_DB)
-    transform_conn = sqlite3.connect(TRANSFORM_DB)
+    if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
+        engine_url = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
+    else:
+        engine_url = DATABASE_URL
+
+    engine = create_engine(engine_url)
+    inspector = inspect(engine)
+    all_tables = inspector.get_table_names()
     
-    # Get all tables from staging
-    tables = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table'", staging_conn)
-    
-    for table in tables['name']:
-        df = pd.read_sql(f"SELECT * FROM {table}", staging_conn)
-        store_prefix = table.split("_")[0]  # first part of table name
-        df_clean = clean_and_transform(df, store_prefix)
-        df_clean.to_sql(f"{table}_transformed", transform_conn, if_exists='replace', index=False)
-        print(f"Transformed {table} → {table}_transformed")
-    
-    staging_conn.close()
-    transform_conn.close()
+    for table in all_tables:
+        if not table.endswith("_transformed") and table != "big_table":
+            df = pd.read_sql(f'SELECT * FROM "{table}"', engine)
+            store_prefix = table.split("_")[0]
+            df_clean = clean_and_transform(df, store_prefix)
+            new_table_name = f"{table}_transformed"
+            df_clean.to_sql(new_table_name, engine, if_exists='replace', index=False)
+            print(f"✅ {new_table_name}")
 
 if __name__ == "__main__":
     transform_all_tables()
